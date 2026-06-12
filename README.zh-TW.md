@@ -79,6 +79,7 @@ cp ~/.claude/coralline-src/themes/claude-coral.conf ~/.claude/coralline/themes/
 
 | 變數 | 預設值 | 說明 |
 |---|---|---|
+| `VL_STYLE` | `pill` | `pill`：powerline 膠囊 · `lean`：p10k lean 的純色文字風格 |
 | `VL_LAYOUT` | `fixed` | `fixed`：每個 `VL_SEGMENTS*` 變數固定一行 · `auto`：響應式 |
 | `VL_MAX_LINES` | `2` | 僅 `auto`——最多折成幾行（`1` = 永不折行） |
 | `VL_SEGMENTS` | `dir git model ctx limit5h limit7d cost clock` | 第一行的區段與順序（`auto` 模式下為完整清單） |
@@ -107,6 +108,23 @@ narrow window:  ~/dev/app  ⎇ main  ◆ Fable 5
 
 偏好完全固定的版面就維持 `VL_LAYOUT="fixed"`，
 用 `VL_SEGMENTS` / `VL_SEGMENTS2` / `VL_SEGMENTS3` 釘住每一行。
+
+### Lean 風格
+
+偏好 Powerlevel10k 的 *lean* 簡潔路線——不要背景、只要純色文字？設定
+`VL_STYLE="lean"`，每個區段的 `VL_BG_*` 顏色就會變成它的文字強調色：
+
+![Lean 風格與 pill 風格對照](./assets/style-lean.png)
+
+| 變數 | 預設值 | 說明 |
+|---|---|---|
+| `VL_STYLE` | `pill` | 設為 `lean` 切換成簡潔風格 |
+| `VL_LEAN_SEP` | （空） | 區段之間的額外分隔字串，例如 `·` |
+| `VL_LEAN_FG` | （空） | 強制指定文字色；留空 = 繼承各區段的強調色 |
+
+> **提示：** 本來就是 p10k 使用者？跟 AI 安裝員說一聲，它會讀你的 `~/.p10k.zsh`，
+> 把風格、配色、時間格式都搬過來。詳見
+> [INSTALL.md 的 Powerlevel10k 匯入步驟](./INSTALL.md#step-25--powerlevel10k-import-optional)。
 
 ## 主題
 

@@ -81,6 +81,7 @@ Everything lives in `~/.claude/coralline.conf` (plain bash, sourced by the scrip
 
 | Variable | Default | Meaning |
 |---|---|---|
+| `VL_STYLE` | `pill` | `pill`: powerline pills · `lean`: flat colored text, p10k-lean style |
 | `VL_LAYOUT` | `fixed` | `fixed`: one line per `VL_SEGMENTS*` var · `auto`: responsive |
 | `VL_MAX_LINES` | `2` | `auto` only — wrap into at most this many lines (`1` = never wrap) |
 | `VL_SEGMENTS` | `dir git model ctx limit5h limit7d cost clock` | segments on line 1, in order (the full list in `auto` mode) |
@@ -110,6 +111,23 @@ narrow window:  ~/dev/app  ⎇ main  ◆ Fable 5
 
 Prefer a layout that never moves? Keep `VL_LAYOUT="fixed"` and pin rows with
 `VL_SEGMENTS` / `VL_SEGMENTS2` / `VL_SEGMENTS3`.
+
+### Lean style
+
+Prefer Powerlevel10k's *lean* look — no backgrounds, just colored text? Set
+`VL_STYLE="lean"` and each segment's `VL_BG_*` color becomes its text accent instead:
+
+![Lean style compared with pill style](./assets/style-lean.png)
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `VL_STYLE` | `pill` | set to `lean` for the flat look |
+| `VL_LEAN_SEP` | _(empty)_ | extra text between segments, e.g. `·` |
+| `VL_LEAN_FG` | _(empty)_ | force a text color; empty = inherit each segment's accent |
+
+> **Tip:** already a p10k user? Tell the AI installer to import your `~/.p10k.zsh` — it will
+> carry over your style, colors, and time format. See the
+> [Powerlevel10k import step in INSTALL.md](./INSTALL.md#step-25--powerlevel10k-import-optional).
 
 ## Themes
 

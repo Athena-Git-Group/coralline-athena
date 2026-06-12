@@ -13,6 +13,8 @@
 input=$(cat)
 
 # ── Defaults (every value can be overridden by the config file) ──────────────
+VL_STYLE="pill"                 # pill: powerline pills · lean: p10k-lean flat text
+VL_LEAN_SEP=""                  # lean only — extra text between segments, e.g. "·"
 VL_LAYOUT="fixed"               # fixed: one line per VL_SEGMENTS* var
                                 # auto:  single line, wraps when the window is narrow
 VL_MAX_LINES=2                  # auto only — wrap into at most this many lines
@@ -64,6 +66,13 @@ if [ "$VL_ASCII" = "1" ]; then
   VL_BAR_FILL="#" ; VL_BAR_EMPTY="-"
 fi
 
+# Lean style: no backgrounds or caps; each segment's VL_BG_* becomes its text
+# accent color (an empty VL_FG_TEXT lets text inherit that accent).
+if [ "$VL_STYLE" = "lean" ]; then
+  VL_CAP_L="" ; VL_CAP_R=""
+  VL_FG_TEXT="${VL_LEAN_FG:-}"
+fi
+
 # ── Parse JSON (single jq call) ──────────────────────────────────────────────
 # Fields are joined with \x1f (unit separator): unlike tab, a non-whitespace
 # IFS preserves empty fields instead of collapsing consecutive delimiters.
@@ -95,13 +104,16 @@ R=$'\033[0m'
 BOLD=$'\033[1m'
 NORM=$'\033[22m'
 
-# bg/fg accept 256-color (single number) or true-color ("R,G,B")
+# bg/fg accept 256-color (single number) or true-color ("R,G,B");
+# an empty argument emits nothing (the text inherits the current color)
 bg() {
+  [ -n "$1" ] || return 0
   if [ "${1#*,}" != "$1" ]; then
     local IFS=','; set -- $1; printf '\033[48;2;%s;%s;%sm' "$1" "$2" "$3"
   else printf '\033[48;5;%sm' "$1"; fi
 }
 fg() {
+  [ -n "$1" ] || return 0
   if [ "${1#*,}" != "$1" ]; then
     local IFS=','; set -- $1; printf '\033[38;2;%s;%s;%sm' "$1" "$2" "$3"
   else printf '\033[38;5;%sm' "$1"; fi
@@ -315,8 +327,17 @@ build_segments() {
   done
 }
 
-print_range() {  # render segments $1..$2 (inclusive) as one pill row
+print_range() {  # render segments $1..$2 (inclusive) as one row
   local i out next
+  if [ "$VL_STYLE" = "lean" ]; then
+    out=""
+    for ((i=$1; i<=$2; i++)); do
+      out+="${R}$(fg ${SEG_BGS[$i]})${SEG_TXT[$i]}"
+      [ "$i" -lt "$2" ] && out+="${R}${VL_LEAN_SEP}"
+    done
+    printf '%s\n' "${out}${R}"
+    return 0
+  fi
   out="${R}$(fg ${SEG_BGS[$1]})${VL_CAP_L}"
   for ((i=$1; i<=$2; i++)); do
     out+="$(bg ${SEG_BGS[$i]})${SEG_TXT[$i]}"
@@ -350,14 +371,16 @@ if [ "$VL_LAYOUT" = "auto" ]; then
     print_range 0 $((total - 1))
     exit 0
   fi
-  # Greedy wrap: per line, width = 2 caps + segment widths + 1 per separator.
+  # Greedy wrap: per line, width = caps + segment widths + separators.
   # Once VL_MAX_LINES is reached, everything left stays on the last line.
-  start=0 ; line=1 ; cur=$(( 2 + SEG_LEN[0] ))
+  if [ "$VL_STYLE" = "lean" ]; then CAP_W=0 ; SEP_W=${#VL_LEAN_SEP}
+  else                              CAP_W=2 ; SEP_W=1 ; fi
+  start=0 ; line=1 ; cur=$(( CAP_W + SEG_LEN[0] ))
   for ((i=1; i<total; i++)); do
-    need=$(( cur + 1 + SEG_LEN[i] ))
+    need=$(( cur + SEP_W + SEG_LEN[i] ))
     if [ "$need" -gt "$W" ] && [ "$line" -lt "$VL_MAX_LINES" ]; then
       print_range "$start" $((i - 1))
-      start=$i ; line=$((line + 1)) ; cur=$(( 2 + SEG_LEN[i] ))
+      start=$i ; line=$((line + 1)) ; cur=$(( CAP_W + SEG_LEN[i] ))
     else
       cur=$need
     fi

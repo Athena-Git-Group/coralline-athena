@@ -255,12 +255,12 @@ MID  = payload(62, 891234, 45600, 623000, 12800, 41, 9840, 79, 86400 + 11 * 3600
 HIGH = payload(87, 1934000, 98400, 1620000, 45200, 91, 2820, 68, 3 * 86400 + 11 * 3600 + 300, 4.52,
                ladd=321, ldel=87, dur_ms=2820000)
 
-def run_bar(theme, segments, payload_json):
+def run_bar(theme, segments, payload_json, extra_conf=""):
     conf = FAKE_HOME / "render.conf"
     conf.write_text(
         f'. {REPO}/themes/{theme}.conf\n'
         f'VL_SEGMENTS="{segments}"\nVL_SEGMENTS2=""\n'
-        f'VL_CLOCK="24h"\nVL_CLOCK_SECONDS=0\n'
+        f'VL_CLOCK="24h"\nVL_CLOCK_SECONDS=0\n{extra_conf}'
     )
     env = dict(os.environ, HOME=str(FAKE_HOME), CORALLINE_CONFIG=str(conf))
     out = subprocess.run(["bash", str(REPO / "statusline.sh")],
@@ -284,10 +284,21 @@ def hero_blocks():
                     + run_bar(theme, "ctx limit5h cost", MID))
             for theme in THEMES]
 
+def lean_blocks():
+    lean = 'VL_STYLE="lean"\n'
+    return [
+        ("daily drive",       run_bar("claude-coral", "dir git model clock", LOW, lean)),
+        ("context & limits",  run_bar("claude-coral", "ctx limit5h limit7d cost", MID, lean)),
+        ("running hot",       run_bar("claude-coral", "ctx limit5h limit7d cost", HIGH, lean)),
+        ("extras",            run_bar("claude-coral", "lines style duration stash", HIGH, lean)),
+        ("same data, pill style", run_bar("claude-coral", "dir git model clock", LOW)),
+    ]
+
 def main():
     ASSETS.mkdir(exist_ok=True)
     setup_demo_repo()
     render_image("coralline — pick your vibe", hero_blocks(), ASSETS / "hero.png")
+    render_image("coralline · lean style", lean_blocks(), ASSETS / "style-lean.png")
     for theme in THEMES:
         render_image(f"coralline · {theme}", theme_blocks(theme),
                      ASSETS / f"theme-{theme}.png")
