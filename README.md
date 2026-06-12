@@ -14,7 +14,7 @@ Paste this into Claude Code:
 
 ```text
 Please install coralline for me:
-fetch https://raw.githubusercontent.com/Nanako0129/coralline/main/INSTALL.md
+fetch https://raw.githubusercontent.com/Athena-Git-Group/coralline-athena/main/INSTALL.md
 and follow the playbook in it.
 ```
 
@@ -54,7 +54,7 @@ spam. Works on stock macOS bash 3.2 and any Linux bash.
 ## Manual install
 
 ```bash
-git clone https://github.com/Nanako0129/coralline ~/.claude/coralline-src
+git clone https://github.com/Athena-Git-Group/coralline-athena ~/.claude/coralline-src
 mkdir -p ~/.claude/coralline/themes
 cp ~/.claude/coralline-src/statusline.sh ~/.claude/coralline/
 cp ~/.claude/coralline-src/themes/claude-coral.conf ~/.claude/coralline/themes/
