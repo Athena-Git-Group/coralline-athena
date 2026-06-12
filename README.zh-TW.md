@@ -17,7 +17,7 @@
 
 ```text
 Please install coralline for me:
-fetch https://raw.githubusercontent.com/Nanako0129/coralline/main/INSTALL.md
+fetch https://raw.githubusercontent.com/Athena-Git-Group/coralline-athena/main/INSTALL.md
 and follow the playbook in it.
 ```
 
@@ -60,7 +60,7 @@ macOS 內建的 bash 3.2 和任何 Linux bash 都能跑。
 ## 手動安裝
 
 ```bash
-git clone https://github.com/Nanako0129/coralline ~/.claude/coralline-src
+git clone https://github.com/Athena-Git-Group/coralline-athena ~/.claude/coralline-src
 mkdir -p ~/.claude/coralline/themes
 cp ~/.claude/coralline-src/statusline.sh ~/.claude/coralline/
 cp ~/.claude/coralline-src/themes/claude-coral.conf ~/.claude/coralline/themes/

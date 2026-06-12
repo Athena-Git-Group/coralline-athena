@@ -140,7 +140,7 @@ otherwise. Show the user the generated palette before writing it.
 
 ```bash
 mkdir -p ~/.claude/coralline/themes
-BASE="https://raw.githubusercontent.com/Nanako0129/coralline/main"
+BASE="https://raw.githubusercontent.com/Athena-Git-Group/coralline-athena/main"
 curl -fsSL "$BASE/statusline.sh"            -o ~/.claude/coralline/statusline.sh
 curl -fsSL "$BASE/themes/<CHOSEN>.conf"     -o ~/.claude/coralline/themes/<CHOSEN>.conf
 chmod +x ~/.claude/coralline/statusline.sh
