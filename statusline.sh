@@ -366,7 +366,7 @@ seg_stash() {
 # ── Athena fork segments ─────────────────────────────────────────────────────
 seg_ip() {        # machine IP, pinned to the very start of the line
   [ -n "$VL_IP" ] || return 0
-  push "$VL_BG_IP" "${BOLD}$(fg $VL_FG_TEXT) ⌂ ${VL_IP} ${NORM}"
+  push "$VL_BG_IP" "${BOLD}$(fg $VL_FG_TEXT) ${VL_IP} ${NORM}"
 }
 
 seg_agent() {     # active subagent, sits right after the model
