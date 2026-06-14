@@ -37,6 +37,7 @@ config editing required.
 |---|---|
 | `ip` | local machine IP, cached for `VL_IP_TTL`s — _Athena fork_ |
 | `dir` | current directory, long paths collapsed to `~/a/…/z` |
+| `project` | repo name (`⬢`), stable across every worktree; hidden outside a git repo |
 | `git` | branch, staged `+` / modified `!` / untracked `?`, ahead `⇡` behind `⇣` |
 | `worktree` | git worktree name — _Athena fork_ |
 | `model` | active Claude model |
@@ -55,8 +56,11 @@ Gauges change color as they fill: green → yellow at 50% → red at 75% (thresh
 
 ## Why it's fast
 
-The statusline runs every second (`refreshInterval: 1`), so the script is built to be cheap:
-one `jq` invocation extracts every field at once, and one `git status --porcelain=v2 --branch`
+The statusline is just a local shell script: it makes no network or API calls and uses zero
+tokens. Claude Code pipes the session JSON to it on stdin and renders whatever it prints.
+
+It runs every second (`refreshInterval: 1`), so the script is built to be cheap on CPU: one
+`jq` invocation extracts every field at once, and one `git status --porcelain=v2 --branch`
 call provides branch, dirty state, and ahead/behind together. No `bc`, no per-field subprocess
 spam. Works on stock macOS bash 3.2 and any Linux bash.
 
@@ -92,7 +96,8 @@ Everything lives in `~/.claude/coralline.conf` (plain bash, sourced by the scrip
 |---|---|---|
 | `VL_STYLE` | `pill` | `pill`: powerline pills · `lean`: flat colored text, p10k-lean style |
 | `VL_LAYOUT` | `fixed` | `fixed`: one line per `VL_SEGMENTS*` var · `auto`: responsive |
-| `VL_MAX_LINES` | `2` | `auto` only — wrap into at most this many lines (`1` = never wrap) |
+| `VL_MAX_LINES` | `3` | `auto` only — wrap into at most this many lines (`1` = never wrap) |
+| `VL_WRAP_MARGIN` | `4` | `auto` only — columns kept free on the right so segments never touch the edge |
 | `VL_SEGMENTS` | `ip dir git worktree model agent ctx limit5h limit7d cost clock warn200k` | segments on line 1, in order (the full list in `auto` mode) |
 | `VL_IP_TTL` | `30` | seconds the resolved IP is cached (Athena fork `ip` segment) |
 | `VL_SEGMENTS2` / `VL_SEGMENTS3` | _(empty)_ | `fixed` only — optional second/third line |
@@ -100,6 +105,7 @@ Everything lives in `~/.claude/coralline.conf` (plain bash, sourced by the scrip
 | `VL_CLOCK_SECONDS` | `1` | show seconds in the clock |
 | `VL_BAR_WIDTH` | `5` | gauge width in cells |
 | `VL_PATH_DEPTH` | `4` | collapse paths deeper than this |
+| `VL_NAME_MAX` | `0` | max chars for the `project` / `git` names before `…` truncation (`0` = off) |
 | `VL_COST_DECIMALS` | `2` | decimal places for the cost segment |
 | `VL_WARN_PCT` / `VL_HOT_PCT` | `50` / `75` | gauge color thresholds |
 | `VL_ASCII` | `0` | `1` disables Nerd Font glyphs |
@@ -108,9 +114,14 @@ Everything lives in `~/.claude/coralline.conf` (plain bash, sourced by the scrip
 ### Responsive layout
 
 With `VL_LAYOUT="auto"` the bar stays on a single line while it fits, and greedily wraps into
-up to `VL_MAX_LINES` rows when the window gets narrow. Width is read from `$COLUMNS`, falling
-back to `stty size` on the controlling terminal; if neither is available the bar stays on one
-line. Once the line cap is reached, remaining segments overflow on the last line.
+up to `VL_MAX_LINES` rows when the window gets narrow. Once the line cap is reached, remaining
+segments overflow on the last line. `VL_WRAP_MARGIN` keeps a few columns free on the right so
+wrapped lines never butt against the window edge — raise it if your terminal adds padding.
+
+Width comes from `$COLUMNS`. Claude Code v2.1.153+ sets `COLUMNS` to the current terminal width
+before running the status line, so wrapping responds to window resizing out of the box. Outside
+Claude Code the script falls back to `stty size` on the controlling terminal; if neither is
+available it stays on one line.
 
 ```text
 wide window:    ~/dev/app  ⎇ main  ◆ Fable 5  ⬡ ▰▰▰▱▱ 62%  5h ▰▰▱▱▱ 41%  $1.23  ⊙ 14:45

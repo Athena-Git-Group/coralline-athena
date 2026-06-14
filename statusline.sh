@@ -17,7 +17,9 @@ VL_STYLE="pill"                 # pill: powerline pills · lean: p10k-lean flat 
 VL_LEAN_SEP=""                  # lean only — extra text between segments, e.g. "·"
 VL_LAYOUT="fixed"               # fixed: one line per VL_SEGMENTS* var
                                 # auto:  single line, wraps when the window is narrow
-VL_MAX_LINES=2                  # auto only — wrap into at most this many lines
+VL_MAX_LINES=3                  # auto only — wrap into at most this many lines
+VL_WRAP_MARGIN=4                # auto only — keep this many columns free on the right.
+                                # 4 covers Claude Code's full-width L/R padding (2 cols each)
 # Athena fork default order: IP first · worktree beside git · agent beside model
 # · 200k alert last. Reset to upstream with "dir git model ctx limit5h limit7d cost clock".
 VL_SEGMENTS="ip dir git worktree model agent ctx limit5h limit7d cost clock warn200k"
@@ -29,6 +31,7 @@ VL_BAR_EMPTY="▱"
 VL_CLOCK="12h"                  # 12h | 24h | off
 VL_CLOCK_SECONDS=1
 VL_PATH_DEPTH=4                 # collapse paths deeper than this
+VL_NAME_MAX=0                   # max chars for project/git names before … truncation (0 = off)
 VL_COST_DECIMALS=2
 VL_WARN_PCT=50                  # percentage thresholds for bar colors
 VL_HOT_PCT=75
@@ -199,7 +202,7 @@ pct_fg() {
 }
 
 # ── Git state (single subprocess, parsed once, used by git/stash segments) ──
-GIT_BRANCH="" GIT_MARKS="" GIT_AB="" GIT_DIRTY=0
+GIT_BRANCH="" GIT_MARKS="" GIT_AB="" GIT_DIRTY=0 GIT_ROOT=""
 read_git() {
   local line oid="" head="" a="" b="" staged=0 unstaged=0 untracked=0
   [ -n "$cwd" ] || return
@@ -223,6 +226,19 @@ GIT
   else
     GIT_BRANCH="$head"
   fi
+  # Stable project name (seg_project): basename of the MAIN repo root, which is
+  # shared by every linked worktree — so it stays constant whichever worktree
+  # you're in. Resolved only when the project segment is enabled, to keep the
+  # one-git-call default untouched.
+  case " $VL_SEGMENTS $VL_SEGMENTS2 $VL_SEGMENTS3 " in *" project "*)
+    local cdir
+    cdir=$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+    [ -n "$cdir" ] || cdir=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)
+    if [ -n "$cdir" ]; then
+      cdir="${cdir%/}" ; cdir="${cdir%/.git}"
+      GIT_ROOT="${cdir##*/}"
+    fi ;;
+  esac
   [ "$staged"    -eq 1 ] && GIT_MARKS="${GIT_MARKS}+"
   [ "$unstaged"  -eq 1 ] && GIT_MARKS="${GIT_MARKS}!"
   [ "$untracked" -eq 1 ] && GIT_MARKS="${GIT_MARKS}?"
@@ -230,7 +246,7 @@ GIT
   [ "${b:-0}" -gt 0 ] 2>/dev/null && GIT_AB="${GIT_AB}⇣${b}"
   [ -n "$GIT_MARKS" ] && GIT_DIRTY=1
 }
-case " $VL_SEGMENTS $VL_SEGMENTS2 $VL_SEGMENTS3 " in *" git "*|*" stash "*) read_git ;; esac
+case " $VL_SEGMENTS $VL_SEGMENTS2 $VL_SEGMENTS3 " in *" git "*|*" stash "*|*" project "*) read_git ;; esac
 
 # ── Local IP (cached; resolved only when the ip segment is enabled) ──────────
 # A network lookup every refresh would defeat the one-jq/one-git budget, so the
@@ -278,6 +294,21 @@ push() {
   SEG_LEN[${#SEG_LEN[@]}]="$SEG_LEN_R"
 }
 
+trunc() {  # echo $1 clipped to $2 visible chars, middle-truncated with … ; $2=0/unset → unchanged
+  local s="$1" max="${2:-0}" head tail start
+  case "$max" in (''|*[!0-9]*) max=0 ;; esac
+  if [ "$max" -le 0 ] || [ "${#s}" -le "$max" ]; then printf '%s' "$s"; return; fi
+  if [ "$max" -lt 3 ]; then printf '%s' "${s:0:max}"; return; fi   # no room for head+…+tail
+  # Keep head and tail so names sharing a long prefix stay distinguishable.
+  head=$(( (max - 1) / 2 )); tail=$(( max - 1 - head )); start=$(( ${#s} - tail ))
+  printf '%s…%s' "${s:0:head}" "${s:start}"
+}
+
+seg_project() {  # stable repo-root name (same in every worktree); hidden outside a repo
+  [ -n "$GIT_ROOT" ] || return 0
+  push "$VL_BG_DIR" "${BOLD}$(fg $VL_FG_TEXT) ⬢ $(trunc "$GIT_ROOT" "$VL_NAME_MAX") ${NORM}"
+}
+
 seg_dir() {
   [ -n "$cwd" ] || return 0
   local short="${cwd/#$HOME/~}" n
@@ -293,7 +324,7 @@ seg_git() {
   [ -n "$GIT_BRANCH" ] || return 0
   local bgc="$VL_BG_GIT_OK"
   [ "$GIT_DIRTY" -eq 1 ] && bgc="$VL_BG_GIT_DIRTY"
-  push "$bgc" "${BOLD}$(fg $VL_FG_TEXT) ⎇ ${GIT_BRANCH}${GIT_MARKS}${GIT_AB} ${NORM}"
+  push "$bgc" "${BOLD}$(fg $VL_FG_TEXT) ⎇ $(trunc "$GIT_BRANCH" "$VL_NAME_MAX")${GIT_MARKS}${GIT_AB} ${NORM}"
 }
 
 seg_model() {
@@ -437,6 +468,9 @@ if [ "$VL_LAYOUT" = "auto" ]; then
     print_range 0 $((total - 1))
     exit 0
   fi
+  # Reserve a right-hand margin so wrapped lines never touch the window edge.
+  W=$(( W - VL_WRAP_MARGIN ))
+  [ "$W" -lt 1 ] && W=1
   # Greedy wrap: per line, width = caps + segment widths + separators.
   # Once VL_MAX_LINES is reached, everything left stays on the last line.
   if [ "$VL_STYLE" = "lean" ]; then CAP_W=0 ; SEP_W=${#VL_LEAN_SEP}
