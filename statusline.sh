@@ -249,13 +249,14 @@ push() {
   SEG_LEN[${#SEG_LEN[@]}]="$SEG_LEN_R"
 }
 
-trunc() {  # echo $1 clipped to $2 visible chars (… suffix); $2=0/unset → unchanged
-  local s="$1" max="${2:-0}"
+trunc() {  # echo $1 clipped to $2 visible chars, middle-truncated with … ; $2=0/unset → unchanged
+  local s="$1" max="${2:-0}" head tail start
   case "$max" in (''|*[!0-9]*) max=0 ;; esac
-  if [ "$max" -gt 0 ] && [ "${#s}" -gt "$max" ]; then
-    s="${s:0:$((max-1))}…"
-  fi
-  printf '%s' "$s"
+  if [ "$max" -le 0 ] || [ "${#s}" -le "$max" ]; then printf '%s' "$s"; return; fi
+  if [ "$max" -lt 3 ]; then printf '%s' "${s:0:max}"; return; fi   # no room for head+…+tail
+  # Keep head and tail so names sharing a long prefix stay distinguishable.
+  head=$(( (max - 1) / 2 )); tail=$(( max - 1 - head )); start=$(( ${#s} - tail ))
+  printf '%s…%s' "${s:0:head}" "${s:start}"
 }
 
 seg_project() {  # stable repo-root name (same in every worktree); hidden outside a repo
