@@ -80,18 +80,27 @@ lean:   ~/proj  ⎇ main  ◆ Fable 5  ⊙ 14:45     (no backgrounds, colored te
 
 | Segment | Shows | Default |
 |---|---|---|
+| `ip` | local machine IP, pinned to the start of the line, cached for `VL_IP_TTL`s — _Athena fork_ | on |
 | `dir` | current directory (shortened) | on |
 | `git` | branch, dirty marks `+!?`, ahead/behind `⇡⇣` | on |
+| `worktree` | git worktree name (`⑂`), sits beside git — _Athena fork_ | on |
 | `model` | active Claude model | on |
+| `agent` | active subagent name (`❖`), sits beside model — _Athena fork_ | on |
 | `ctx` | context-window gauge + token counts | on |
 | `limit5h` / `limit7d` | rate-limit gauges with reset countdown | on |
 | `cost` | session cost in USD | on |
 | `clock` | current time | on |
+| `warn200k` | 200k-token overflow alert (`⚠`), pinned to the end of the line — _Athena fork_ | on |
 | `lines` | lines added/removed this session | off |
 | `style` | active output style | off |
 | `duration` | session wall-clock duration | off |
 | `stash` | git stash count | off |
 | `project` | stable repo name (`⬢`), same across all git worktrees | off |
+
+> **Athena fork:** the four `ip` / `worktree` / `agent` / `warn200k` segments ship enabled in the
+> default `VL_SEGMENTS`. `worktree`, `agent`, and `warn200k` only render when their data is present
+> (inside a worktree, while a subagent runs, when the session exceeds 200k tokens), so they cost
+> nothing when idle. If the user wants the plain upstream set, drop all four.
 
 ### Question 4 · Layout
 
@@ -166,7 +175,7 @@ VL_STYLE="pill"          # pill: powerline pills · lean: flat p10k-lean text
 VL_LAYOUT="auto"         # auto: responsive · fixed: pinned rows
 VL_MAX_LINES=3           # auto only — wrap cap (1 = never wrap)
 VL_WRAP_MARGIN=4         # auto only — columns kept free on the right edge
-VL_SEGMENTS="dir git model ctx limit5h limit7d cost clock"
+VL_SEGMENTS="ip dir git worktree model agent ctx limit5h limit7d cost clock warn200k"
 VL_SEGMENTS2=""          # fixed only — second line, e.g. "lines style duration"
 VL_SEGMENTS3=""          # fixed only — third line
 VL_CLOCK="12h"           # 12h | 24h | off
@@ -175,6 +184,7 @@ VL_BAR_WIDTH=5
 VL_COST_DECIMALS=2
 VL_PATH_DEPTH=4
 VL_NAME_MAX=0            # 0 = off; >0 truncates project/git names (middle-truncation)
+VL_IP_TTL=30             # Athena fork — seconds the resolved machine IP is cached
 VL_ASCII=0               # 1 = no Nerd Font glyphs
 ```
 
