@@ -256,7 +256,7 @@ read_ip() {
   local cache="${TMPDIR:-/tmp}/coralline-ip" mt now iface
   now=$(date +%s)
   if [ -f "$cache" ]; then
-    mt=$(stat -f %m "$cache" 2>/dev/null || stat -c %Y "$cache" 2>/dev/null || echo 0)
+    mt=$(stat -c %Y "$cache" 2>/dev/null || stat -f %m "$cache" 2>/dev/null || echo 0)
     if [ "$(( now - mt ))" -lt "${VL_IP_TTL:-30}" ]; then
       VL_IP=$(cat "$cache" 2>/dev/null); return
     fi
