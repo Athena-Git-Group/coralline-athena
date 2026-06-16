@@ -79,6 +79,20 @@ Then add to `~/.claude/settings.json`:
 > **Note:** requires `jq` and a [Nerd Font](https://www.nerdfonts.com/) terminal.
 > No Nerd Font? Set `VL_ASCII=1` in your config for a glyph-free rendering.
 
+### Platform support
+
+| Platform | Status |
+|---|---|
+| macOS | ✅ supported (works on the stock bash 3.2) |
+| Linux | ✅ supported |
+| Windows + Git Bash | ✅ supported — Claude Code runs the status line through Git Bash when it's installed |
+| Windows without Git Bash | ❌ not yet — Claude Code falls back to PowerShell, which can't run the bash script ([roadmap](https://github.com/Nanako0129/coralline/issues)) |
+
+> **Windows note:** install [Git for Windows](https://git-scm.com/download/win) (which bundles
+> Git Bash) and `jq`, and coralline runs natively. A native PowerShell port for the no-Git-Bash
+> case is on the roadmap. The render path is built to stay cheap under Git Bash's emulated
+> `fork()` — one `jq`, one `git`, and no per-field subprocess spawning.
+
 ## Configuration
 
 Everything lives in `~/.claude/coralline.conf` (plain bash, sourced by the script):
