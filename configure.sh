@@ -17,6 +17,8 @@ P10K_FILE="${P10K_CONFIG:-$HOME/.p10k.zsh}"
 # The live list is derived from statusline.sh's seg_* functions by load_segment_choices.
 SEGMENT_CHOICES="dir project git model ctx limit5h limit7d cost clock lines style duration effort stash"
 DEFAULT_SEGMENTS="dir git model ctx limit5h limit7d cost clock"
+THEME_CHOICES=""
+theme_choices_loaded=0
 
 theme="claude-coral"
 style="pill"
@@ -36,6 +38,8 @@ install_only=0
 setup_mode=""
 screen_active=0
 old_stty=""
+preview_input_file=""
+preview_cache_dir=""
 
 T_RESET=$(printf '\033[0m')
 T_BOLD=$(printf '\033[1m')
@@ -96,9 +100,24 @@ runtime_theme_dir() {
 
 theme_list() {
   local dir
+  if [ "$theme_choices_loaded" = "1" ]; then
+    printf '%s' "$THEME_CHOICES"
+    return 0
+  fi
   dir=$(runtime_theme_dir)
   [ -d "$dir" ] || return 0
   (cd "$dir" && find . -type f -name '*.conf' | sed 's#^\./##; s#\.conf$##' | sort)
+}
+
+load_theme_choices() {
+  local dir
+  dir=$(runtime_theme_dir)
+  [ -d "$dir" ] || return 0
+  THEME_CHOICES=$(cd "$dir" && find . -type f -name '*.conf' | sed 's#^\./##; s#\.conf$##' | sort; printf x)
+  THEME_CHOICES=${THEME_CHOICES%x}
+  [ -n "$THEME_CHOICES" ] && THEME_CHOICES="${THEME_CHOICES}
+"
+  theme_choices_loaded=1
 }
 
 theme_count() {
@@ -134,6 +153,34 @@ runtime_sample() {
   else
     printf '%s\n' ""
   fi
+}
+
+prepare_preview_input() {
+  local sample input
+  if [ -n "$preview_input_file" ] && [ -f "$preview_input_file" ]; then
+    printf '%s\n' "$preview_input_file"
+    return 0
+  fi
+  sample=$(runtime_sample)
+  [ -n "$sample" ] && need_file "$sample"
+  input=$(mktemp "${TMPDIR:-/tmp}/coralline-input.XXXXXX") || exit 1
+  if [ -n "$sample" ]; then
+    jq --arg cwd "$SCRIPT_DIR" '.cwd = $cwd | .workspace.current_dir = $cwd' "$sample" > "$input" 2>/dev/null || cp "$sample" "$input"
+  else
+    jq -n --arg cwd "$SCRIPT_DIR" '{cwd: $cwd, workspace: {current_dir: $cwd}}' > "$input"
+  fi
+  preview_input_file="$input"
+  printf '%s\n' "$preview_input_file"
+}
+
+preview_cache_path() {
+  local config="$1" cols="$2" key crc bytes
+  [ -n "$preview_cache_dir" ] || preview_cache_dir=$(mktemp -d "${TMPDIR:-/tmp}/coralline-preview.XXXXXX") || exit 1
+  key=$( (printf '%s\n' "$cols"; cat "$config") | cksum )
+  set -- $key
+  crc="$1"
+  bytes="$2"
+  printf '%s/%s-%s.out\n' "$preview_cache_dir" "$crc" "$bytes"
 }
 
 ask() {
@@ -211,6 +258,12 @@ leave_screen() {
   tput cnorm 2>/dev/null || true
   tput rmcup 2>/dev/null || true
   screen_active=0
+}
+
+cleanup() {
+  leave_screen
+  [ -n "$preview_input_file" ] && rm -f "$preview_input_file"
+  [ -n "$preview_cache_dir" ] && rm -rf "$preview_cache_dir"
 }
 
 clear_screen() {
@@ -368,22 +421,22 @@ EOF
 }
 
 render_preview() {
-  local tmp input statusline sample cols="${1:-120}"
+  local tmp input statusline cache cols="${1:-120}"
   statusline=$(runtime_statusline)
-  sample=$(runtime_sample)
   need_file "$statusline"
-  [ -n "$sample" ] && need_file "$sample"
   tmp=$(mktemp "${TMPDIR:-/tmp}/coralline-config.XXXXXX") || exit 1
-  input=$(mktemp "${TMPDIR:-/tmp}/coralline-input.XXXXXX") || exit 1
+  input=$(prepare_preview_input)
   write_candidate_config "$tmp"
-  if [ -n "$sample" ]; then
-    jq --arg cwd "$SCRIPT_DIR" '.cwd = $cwd | .workspace.current_dir = $cwd' "$sample" > "$input" 2>/dev/null || cp "$sample" "$input"
-  else
-    jq -n --arg cwd "$SCRIPT_DIR" '{cwd: $cwd, workspace: {current_dir: $cwd}}' > "$input"
-  fi
+  cache=$(preview_cache_path "$tmp" "$cols")
   printf '\nPreview (%s cols):\n' "$cols"
-  CORALLINE_CONFIG="$tmp" COLUMNS="$cols" bash "$statusline" < "$input"
-  rm -f "$tmp" "$input"
+  if [ ! -f "$cache" ]; then
+    if ! CORALLINE_CONFIG="$tmp" COLUMNS="$cols" bash "$statusline" < "$input" > "$cache"; then
+      rm -f "$cache" "$tmp"
+      return 1
+    fi
+  fi
+  cat "$cache"
+  rm -f "$tmp"
 }
 
 preview_current() {
@@ -1095,12 +1148,13 @@ for arg in "$@"; do
   esac
 done
 
-trap 'leave_screen' EXIT
-trap 'leave_screen; exit 130' INT TERM
+trap 'cleanup' EXIT
+trap 'cleanup; exit 130' INT TERM
 
 [ "$install_only" = "1" ] && exit 0
 
 load_segment_choices
+load_theme_choices
 main_menu
 write_final_config || exit 0
 verify_render
