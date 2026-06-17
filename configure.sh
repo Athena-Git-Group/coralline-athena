@@ -15,7 +15,7 @@ P10K_FILE="${P10K_CONFIG:-$HOME/.p10k.zsh}"
 
 # Fallback list, used only when the runtime statusline cannot be scanned.
 # The live list is derived from statusline.sh's seg_* functions by load_segment_choices.
-SEGMENT_CHOICES="dir project git model ctx limit5h limit7d cost clock lines style duration effort stash"
+SEGMENT_CHOICES="dir project git model effort ctx limit5h limit7d lines cost style duration stash clock"
 DEFAULT_SEGMENTS="dir git model ctx limit5h limit7d cost clock"
 THEME_CHOICES=""
 theme_choices_loaded=0
@@ -38,6 +38,9 @@ install_only=0
 setup_mode=""
 screen_active=0
 old_stty=""
+resized=0          # set by the SIGWINCH trap; consumed by read_key
+KEY=""             # read_key writes the decoded key here (avoids a $() subshell)
+last_size=""       # last seen "rows cols" — polled so resize is caught reliably
 preview_input_file=""
 preview_cache_dir=""
 
@@ -115,8 +118,6 @@ load_theme_choices() {
   [ -d "$dir" ] || return 0
   THEME_CHOICES=$(cd "$dir" && find . -type f -name '*.conf' | sed 's#^\./##; s#\.conf$##' | sort; printf x)
   THEME_CHOICES=${THEME_CHOICES%x}
-  [ -n "$THEME_CHOICES" ] && THEME_CHOICES="${THEME_CHOICES}
-"
   theme_choices_loaded=1
 }
 
@@ -127,15 +128,20 @@ theme_count() {
 # Derive the segment menu from the runtime's seg_* functions so a new segment in
 # statusline.sh shows up here automatically — mirrors the theme auto-scan above.
 load_segment_choices() {
-  local statusline names
+  local statusline discovered s ordered=""
   statusline=$(runtime_statusline)
   [ -f "$statusline" ] || return 0
-  names=$(grep -oE '^seg_[A-Za-z0-9_]+' "$statusline" \
-    | sed 's/^seg_//' \
-    | grep -Ev '^(len|limit)$' \
-    | tr '\n' ' ')
-  names="${names% }"
-  [ -n "$names" ] && SEGMENT_CHOICES="$names"
+  discovered=" $(grep -oE '^seg_[A-Za-z0-9_]+' "$statusline" \
+    | sed 's/^seg_//' | grep -Ev '^(len|limit)$' | tr '\n' ' ') "
+  [ "$discovered" = "  " ] && return 0
+  # Show segments in the canonical SEGMENT_CHOICES order (keeping only the ones
+  # that still exist), then append any newly added segments not listed there, so
+  # a new seg_* in statusline.sh still shows up automatically.
+  for s in $SEGMENT_CHOICES; do
+    case "$discovered" in *" $s "*) ordered="${ordered}${ordered:+ }$s"; discovered="${discovered/ $s / }" ;; esac
+  done
+  for s in $discovered; do ordered="${ordered}${ordered:+ }$s"; done
+  SEGMENT_CHOICES="$ordered"
 }
 
 segment_total() {
@@ -278,25 +284,38 @@ redraw_menu_area() {
   printf '\033[u'
 }
 
-read_key() {
-  local k k2 k3
-  IFS= read -rsn1 k || return 1
+read_key() {  # sets global KEY; returns 1 on EOF. Polls with a 1s timeout so a
+              # window resize is always caught — even when SIGWINCH does not
+              # interrupt the blocking read — by comparing the terminal size.
+  local k k2 k3 now rc
+  while :; do
+    IFS= read -rsn1 -t 1 k; rc=$?
+    [ "$rc" = 0 ] && break        # got a key
+    [ "$rc" = 1 ] && return 1      # EOF
+    # timeout or signal: detect resize via the trap flag or a size change
+    if [ "$resized" = "1" ]; then resized=0; KEY="resize"; return 0; fi
+    now=$(stty size 2>/dev/null || true)
+    if [ -n "$now" ] && [ -n "$last_size" ] && [ "$now" != "$last_size" ]; then
+      last_size="$now"; KEY="resize"; return 0
+    fi
+    [ -n "$now" ] && last_size="$now"
+  done
   if [ "$k" = $'\033' ]; then
     IFS= read -rsn1 -t 1 k2 2>/dev/null || k2=""
     IFS= read -rsn1 -t 1 k3 2>/dev/null || k3=""
     k="$k$k2$k3"
   fi
   case "$k" in
-    $'\033[A') printf 'up\n' ;;
-    $'\033[B') printf 'down\n' ;;
-    $'\033[C') printf 'right\n' ;;
-    $'\033[D') printf 'left\n' ;;
-    '') printf 'enter\n' ;;
-    ' ') printf 'space\n' ;;
-    q|Q) printf 'quit\n' ;;
-    k|K) printf 'up\n' ;;
-    j|J) printf 'down\n' ;;
-    *) printf '%s\n' "$k" ;;
+    $'\033[A') KEY=up ;;
+    $'\033[B') KEY=down ;;
+    $'\033[C') KEY=right ;;
+    $'\033[D') KEY=left ;;
+    '') KEY=enter ;;
+    ' ') KEY=space ;;
+    q|Q) KEY=quit ;;
+    k|K) KEY=up ;;
+    j|J) KEY=down ;;
+    *) KEY="$k" ;;
   esac
 }
 
@@ -441,7 +460,10 @@ write_candidate_config() {
 }
 
 render_preview() {
-  local tmp input statusline cache cols="${1:-120}"
+  local tmp input statusline cache cols="${1:-120}" sz
+  # Cap the preview to the real terminal width so it never wraps on a narrow window.
+  sz=$(stty size 2>/dev/null || true)
+  if [ -n "$sz" ]; then set -- $sz; [ -n "${2:-}" ] && [ "$2" -gt 0 ] 2>/dev/null && [ "$cols" -gt "$2" ] && cols="$2"; fi
   statusline=$(runtime_statusline)
   need_file "$statusline"
   tmp=$(mktemp "${TMPDIR:-/tmp}/coralline-config.XXXXXX") || exit 1
@@ -497,7 +519,7 @@ show_current_state() {
   if [ "$layout" = "auto" ]; then printf ':%s' "$max_lines"; fi
   printf ' · %sClock%s: %s' "$T_DIM" "$T_RESET" "$clock_mode"
   if [ "$clock_mode" != "off" ]; then
-    [ "$clock_seconds" = "1" ] && printf '+seconds' || printf '-seconds'
+    [ "$clock_seconds" = "1" ] && printf '%s' '+seconds' || printf '%s' '-seconds'
   fi
   [ "$ascii_mode" = "1" ] && printf ' · %sASCII%s' "$T_WARN" "$T_RESET" || printf ' · %sNerd Font%s' "$T_GREEN" "$T_RESET"
   printf '\n'
@@ -547,7 +569,7 @@ theme_by_index() {
   done <<THEMES
 $(theme_list)
 THEMES
-  printf '%s\n' "$theme"
+  return 1
 }
 
 choose_theme_screen() {
@@ -576,7 +598,7 @@ choose_theme_screen() {
     done
     draw_screen_footer
     clear_tail
-    key=$(read_key) || return 1
+    read_key || return 1; key="$KEY"
     case "$key" in
       up|down) selected=$(menu_move "$selected" "$key" "$count") ;;
       enter) theme=$(theme_by_index "$selected"); return 0 ;;
@@ -597,7 +619,7 @@ choose_style_screen() {
     [ "$selected" = "1" ] && draw_option 1 "$mark" "lean" || draw_option 0 "$mark" "lean"
     draw_screen_footer
     clear_tail
-    key=$(read_key) || return 1
+    read_key || return 1; key="$KEY"
     case "$key" in
       up|down) selected=$(menu_move "$selected" "$key" 2) ;;
       enter)
@@ -626,9 +648,10 @@ choose_segments_screen() {
       dirty=0
     fi
     draw_segments_menu "$selected"
-    key=$(read_key) || return 1
+    read_key || return 1; key="$KEY"
     case "$key" in
       up|down) selected=$(menu_move "$selected" "$key" "$count") ;;
+      resize) dirty=1 ;;
       enter) return 0 ;;
       space)
         if [ "$selected" -lt "$seg_n" ]; then
@@ -674,12 +697,32 @@ layout_selected_index() {
   printf '3\n'
 }
 
+split_segments() {  # $1=lines (2 or 3), $2=full list — distributes evenly into segments/segments2/segments3
+  local n="$1" all="$2" total per i=0 line=1 s
+  set -- $all; total=$#
+  segments=""; segments2=""; segments3=""
+  per=$(( (total + n - 1) / n )); [ "$per" -lt 1 ] && per=1
+  for s in $all; do
+    case "$line" in
+      1) segments="${segments}${segments:+ }$s" ;;
+      2) segments2="${segments2}${segments2:+ }$s" ;;
+      3) segments3="${segments3}${segments3:+ }$s" ;;
+    esac
+    i=$((i + 1))
+    if [ "$i" -ge "$per" ] && [ "$line" -lt "$n" ]; then line=$((line + 1)); i=0; fi
+  done
+}
+
 apply_layout_index() {
+  # Always recombine first so switching layouts (or navigating past them in the
+  # menu) never drops segments that were parked on line 2/3.
+  local all
+  all=$(normalize_segments "$segments $segments2 $segments3")
   case "$1" in
-    0) layout="auto"; max_lines=3; segments2=""; segments3="" ;;
-    1) layout="auto"; max_lines=1; segments2=""; segments3="" ;;
-    2) layout="fixed"; max_lines=3; segments="dir git model"; segments2="ctx limit5h limit7d cost clock"; segments3="" ;;
-    3) layout="fixed"; max_lines=3; segments="dir git model"; segments2="ctx limit5h limit7d"; segments3="cost clock" ;;
+    0) layout="auto";  max_lines=3; segments="$all"; segments2=""; segments3="" ;;
+    1) layout="auto";  max_lines=1; segments="$all"; segments2=""; segments3="" ;;
+    2) layout="fixed"; max_lines=3; split_segments 2 "$all" ;;
+    3) layout="fixed"; max_lines=3; split_segments 3 "$all" ;;
   esac
 }
 
@@ -700,7 +743,7 @@ choose_layout_screen() {
     [ "$selected" = "3" ] && draw_option 1 "$mark" "fixed three lines" || draw_option 0 "$mark" "fixed three lines"
     draw_screen_footer
     clear_tail
-    key=$(read_key) || return 1
+    read_key || return 1; key="$KEY"
     case "$key" in
       up|down) selected=$(menu_move "$selected" "$key" 4) ;;
       enter) apply_layout_index "$selected"; return 0 ;;
@@ -717,9 +760,10 @@ choose_details_screen() {
       dirty=0
     fi
     draw_details_menu "$selected"
-    key=$(read_key) || return 1
+    read_key || return 1; key="$KEY"
     case "$key" in
       up|down) selected=$(menu_move "$selected" "$key" "$count") ;;
+      resize) dirty=1 ;;
       enter) return 0 ;;
       space)
         case "$selected" in
@@ -729,6 +773,8 @@ choose_details_screen() {
           3) [ "$clock_seconds" = "1" ] && clock_seconds=0 || clock_seconds=1; dirty=1 ;;
           4) [ "$ascii_mode" = "1" ] && ascii_mode=0 || ascii_mode=1; dirty=1 ;;
           5)
+            # Drop to cooked mode for the prompt so the cursor, echo and backspace
+            # all work normally (an in-TUI digit editor has no visible cursor).
             leave_screen
             name_max=$(ask "Max chars for project/git names, 0 disables truncation" "$name_max")
             case "$name_max" in ''|*[!0-9]*) name_max=0 ;; esac
@@ -754,7 +800,8 @@ draw_details_menu() {
   [ "$selected" = "3" ] && draw_option 1 "$mark" "seconds" || draw_option 0 "$mark" "seconds"
   [ "$ascii_mode" = "0" ] && mark="✓" || mark=" "
   [ "$selected" = "4" ] && draw_option 1 "$mark" "Nerd Font" || draw_option 0 "$mark" "Nerd Font"
-  [ "$selected" = "5" ] && draw_option 1 " " "name max: $name_max" || draw_option 0 " " "name max: $name_max"
+  [ "$name_max" != "0" ] && mark="✓" || mark=" "
+  [ "$selected" = "5" ] && draw_option 1 "$mark" "name max (0=off): $name_max" || draw_option 0 "$mark" "name max (0=off): $name_max"
   draw_screen_footer toggle
   clear_tail
 }
@@ -831,7 +878,12 @@ toggle_segment() {
     done
     segments="$next"
   else
-    segments="${segments}${segments:+ }$target"
+    # Re-emit in the canonical SEGMENT_CHOICES order so a newly enabled segment
+    # lands in its defined position instead of being appended in toggle order.
+    for s in $SEGMENT_CHOICES; do
+      { has_segment "$s" || [ "$s" = "$target" ]; } && next="${next}${next:+ }$s"
+    done
+    segments="$next"
   fi
 }
 
@@ -889,6 +941,7 @@ choose_layout() {
         layout="auto"
         rows=$(ask_choice "Maximum rows" 3 3)
         max_lines="$rows"
+        segments=$(normalize_segments "$segments $segments2 $segments3")
         segments2=""
         segments3=""
         show_step "Layout selected" 80
@@ -896,6 +949,7 @@ choose_layout() {
       2)
         layout="auto"
         max_lines=1
+        segments=$(normalize_segments "$segments $segments2 $segments3")
         segments2=""
         segments3=""
         show_step "Layout selected" 80
@@ -1062,9 +1116,10 @@ main_menu_screen() {
       drawn=1
     fi
     draw_main_menu "$selected"
-    key=$(read_key) || return 1
+    read_key || return 1; key="$KEY"
     case "$key" in
       up|down) selected=$(menu_move "$selected" "$key" "$count") ;;
+      resize) drawn=0 ;;
       enter)
         leave_screen
         if [ -f "$P10K_FILE" ]; then
@@ -1170,6 +1225,7 @@ done
 
 trap 'cleanup' EXIT
 trap 'cleanup; exit 130' INT TERM
+trap 'resized=1' WINCH
 
 [ "$install_only" = "1" ] && exit 0
 
