@@ -52,7 +52,7 @@ bash ~/.claude/coralline/configure.sh
 測試 fork 時，可以讓 installer 指向同一個 fork：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/miyago9267/coralline/main/install.sh | bash -s -- --repo miyago9267/coralline
+curl -fsSL https://raw.githubusercontent.com/YOU/coralline/main/install.sh | bash -s -- --repo YOU/coralline
 ```
 
 ## 效果

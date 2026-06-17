@@ -53,7 +53,7 @@ bash ~/.claude/coralline/configure.sh
 Testing a fork? Point the installer at the same fork:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/miyago9267/coralline/main/install.sh | bash -s -- --repo miyago9267/coralline
+curl -fsSL https://raw.githubusercontent.com/YOU/coralline/main/install.sh | bash -s -- --repo YOU/coralline
 ```
 
 ## What you get

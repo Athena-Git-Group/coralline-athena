@@ -33,7 +33,7 @@ If the user is testing a fork, keep the downloaded installer and runtime files o
 repo:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/miyago9267/coralline/main/install.sh | bash -s -- --repo miyago9267/coralline --install-only
+curl -fsSL https://raw.githubusercontent.com/YOU/coralline/main/install.sh | bash -s -- --repo YOU/coralline --install-only
 ```
 
 If you are already inside a local clone, run:
