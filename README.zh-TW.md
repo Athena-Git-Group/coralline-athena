@@ -20,6 +20,27 @@ and follow the playbook in it.
 Claude 會讓你挑主題（附預覽圖）、選擇要顯示哪些區段、決定單行或雙行版面，
 然後自動完成設定並驗證。完全不需要手動編輯設定檔。
 
+## 直接安裝
+
+```bash
+git clone https://github.com/Nanako0129/coralline ~/.claude/coralline-src
+bash ~/.claude/coralline-src/configure.sh --install
+```
+
+wizard 會安裝 renderer、複製內建主題、更新 `~/.claude/settings.json`，接著讓你選：
+
+| 模式 | 適合情境 |
+|---|---|
+| 預設 | 想直接使用 coralline 預設外觀 |
+| Powerlevel10k import | 已經有 `~/.p10k.zsh`，想帶入 style、時間格式與主要色彩 |
+| 視覺化 wizard | 想先預覽 theme、style、segments、折行、時鐘與字型相容性 |
+
+之後要重新設定可以跑：
+
+```bash
+bash ~/.claude/coralline/configure.sh
+```
+
 ## 效果
 
 ```text
@@ -60,6 +81,7 @@ macOS 內建的 bash 3.2 和任何 Linux bash 都能跑。
 git clone https://github.com/Nanako0129/coralline ~/.claude/coralline-src
 mkdir -p ~/.claude/coralline/themes
 cp ~/.claude/coralline-src/statusline.sh ~/.claude/coralline/
+cp ~/.claude/coralline-src/configure.sh ~/.claude/coralline/
 cp ~/.claude/coralline-src/themes/claude-coral.conf ~/.claude/coralline/themes/
 ```
 

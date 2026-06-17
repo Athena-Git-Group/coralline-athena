@@ -22,6 +22,28 @@ Claude will ask you to pick a theme (with previews), choose which segments you w
 between a one-line or two-line layout, then wire everything up and verify it. No manual
 config editing required.
 
+## Install (direct)
+
+```bash
+git clone https://github.com/Nanako0129/coralline ~/.claude/coralline-src
+bash ~/.claude/coralline-src/configure.sh --install
+```
+
+The wizard installs the renderer, copies all bundled themes, updates `~/.claude/settings.json`,
+then lets you choose one of three setup paths:
+
+| Mode | Use when |
+|---|---|
+| Default | You want the coralline default immediately |
+| Powerlevel10k import | You already have `~/.p10k.zsh` and want to carry over its style, time format, and main colors |
+| Visual wizard | You want to preview themes, style, segments, wrapping, clock, and font compatibility before writing config |
+
+Re-run this anytime to restyle:
+
+```bash
+bash ~/.claude/coralline/configure.sh
+```
+
 ## What you get
 
 ```text
@@ -62,6 +84,7 @@ spam. Works on stock macOS bash 3.2 and any Linux bash.
 git clone https://github.com/Nanako0129/coralline ~/.claude/coralline-src
 mkdir -p ~/.claude/coralline/themes
 cp ~/.claude/coralline-src/statusline.sh ~/.claude/coralline/
+cp ~/.claude/coralline-src/configure.sh ~/.claude/coralline/
 cp ~/.claude/coralline-src/themes/claude-coral.conf ~/.claude/coralline/themes/
 ```
 

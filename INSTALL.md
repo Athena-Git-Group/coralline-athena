@@ -12,7 +12,9 @@ and registering the script in `settings.json`:
 | Artifact | Destination | Purpose |
 |---|---|---|
 | `statusline.sh` | `~/.claude/coralline/statusline.sh` | The statusline renderer |
+| `configure.sh` | `~/.claude/coralline/configure.sh` | Visual setup wizard and reconfiguration entrypoint |
 | `themes/<chosen>.conf` | `~/.claude/coralline/themes/<chosen>.conf` | Color palette |
+| `sample-input.json` | `~/.claude/coralline/sample-input.json` | Local preview + verification sample |
 | generated config | `~/.claude/coralline.conf` | User's layout + theme choices |
 | `statusLine` entry | `~/.claude/settings.json` | Registers the script |
 
@@ -24,6 +26,26 @@ flowchart LR
     D --> E[Update settings.json]
     E --> F[Verify with sample input]
 ```
+
+## Fast path
+
+If you are working from a local clone, prefer the built-in wizard:
+
+```bash
+bash configure.sh --install
+```
+
+If the repository has not been cloned yet:
+
+```bash
+git clone https://github.com/Nanako0129/coralline ~/.claude/coralline-src
+bash ~/.claude/coralline-src/configure.sh --install
+```
+
+The wizard copies the renderer and bundled themes, updates `settings.json`, offers the
+default config, local `~/.p10k.zsh` import when present, or a visual wizard, then verifies the
+final render with sample input. Use the manual steps below only when the wizard cannot run in
+the current environment.
 
 ## Step 1 — Check prerequisites
 
@@ -157,8 +179,10 @@ otherwise. Show the user the generated palette before writing it.
 mkdir -p ~/.claude/coralline/themes
 BASE="https://raw.githubusercontent.com/Nanako0129/coralline/main"
 curl -fsSL "$BASE/statusline.sh"            -o ~/.claude/coralline/statusline.sh
+curl -fsSL "$BASE/configure.sh"             -o ~/.claude/coralline/configure.sh
 curl -fsSL "$BASE/themes/<CHOSEN>.conf"     -o ~/.claude/coralline/themes/<CHOSEN>.conf
-chmod +x ~/.claude/coralline/statusline.sh
+curl -fsSL "$BASE/test/sample-input.json"   -o ~/.claude/coralline/sample-input.json
+chmod +x ~/.claude/coralline/statusline.sh ~/.claude/coralline/configure.sh
 ```
 
 > **Note:** if the repo is already cloned locally, copy from the clone instead of downloading.
