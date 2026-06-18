@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # coralline — a configurable, Powerlevel10k-inspired statusline for Claude Code
-# https://github.com/Nanako0129/coralline
+# https://github.com/Athena-Git-Group/coralline-athena
 # Visual style is a tribute to https://github.com/romkatv/powerlevel10k
 #
 # Design goals:
@@ -368,10 +368,9 @@ push() {
   SEG_LEN[${#SEG_LEN[@]}]="$SEG_LEN_R"
 }
 
-seg_project() {  # repo-root name in a repo; falls back to dir outside one (unless dir is already shown)
+seg_project() {  # repo-root name in a repo; silent outside one
   if [ -z "$GIT_ROOT" ]; then
-    case " $VL_SEGMENTS $VL_SEGMENTS2 $VL_SEGMENTS3 " in *" dir "*) return 0 ;; esac
-    seg_dir; return
+    return 0
   fi
   fg "$VL_FG_TEXT"; trunc "$GIT_ROOT" "$VL_NAME_MAX"
   push "${VL_BG_PROJECT:-$VL_BG_DIR}" "${BOLD}${_FG} ⬢ ${_TR} ${NORM}"
@@ -491,22 +490,26 @@ seg_stash() {
 # ── Athena fork segments ─────────────────────────────────────────────────────
 seg_ip() {        # machine IP, pinned to the very start of the line
   [ -n "$VL_IP" ] || return 0
-  push "$VL_BG_IP" "${BOLD}$(fg $VL_FG_TEXT) ${VL_IP} ${NORM}"
+  fg "$VL_FG_TEXT"
+  push "$VL_BG_IP" "${BOLD}${_FG} ${VL_IP} ${NORM}"
 }
 
 seg_agent() {     # active subagent, sits right after the model
   [ -n "$agent" ] || return 0
-  push "$VL_BG_AGENT" "${BOLD}$(fg $VL_FG_TEXT) ❖ ${agent} ${NORM}"
+  fg "$VL_FG_TEXT"
+  push "$VL_BG_AGENT" "${BOLD}${_FG} ❖ ${agent} ${NORM}"
 }
 
 seg_worktree() {  # git worktree name, sits right after git
   [ -n "$worktree" ] || return 0
-  push "$VL_BG_WT" "${BOLD}$(fg $VL_FG_TEXT) ⑂ ${worktree} ${NORM}"
+  fg "$VL_FG_TEXT"
+  push "$VL_BG_WT" "${BOLD}${_FG} ⑂ ${worktree} ${NORM}"
 }
 
 seg_warn200k() {  # 200k-token overflow alert, pinned to the very end
   [ "$exceeds200k" = "true" ] || return 0
-  push "$VL_BG_WARN" "${BOLD}$(fg $VL_FG_ALERT) ⚠ 200k ${NORM}"
+  fg "$VL_FG_ALERT"
+  push "$VL_BG_WARN" "${BOLD}${_FG} ⚠ 200k ${NORM}"
 }
 
 # ── Render ───────────────────────────────────────────────────────────────────
