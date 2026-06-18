@@ -334,7 +334,7 @@ seg_project() {  # repo-root name in a repo; falls back to dir outside one (unle
 
 seg_dir() {
   [ -n "$cwd" ] || return 0
-  local short="${cwd/#$HOME/~}" n last
+  local short="${cwd/#"$HOME"/\~}" n last
   local IFS='/'; set -- $short; n=$#
   if [ "$n" -gt "$VL_PATH_DEPTH" ]; then
     eval "last=\${$n}"
