@@ -1,8 +1,8 @@
 # coralline
 
 > A [Powerlevel10k](https://github.com/romkatv/powerlevel10k)-inspired statusline for Claude
-> Code that **installs itself through your AI** — paste one prompt, answer a few questions
-> about colors and layout, done.
+> Code with one installer entrypoint for humans and AI: run it directly, or ask Claude to run
+> it and handle the setup for you.
 
 [繁體中文說明](./README.zh-TW.md)
 
@@ -13,7 +13,40 @@
 
 ![All six coralline themes rendered side by side](./assets/hero.png)
 
-## Install (the fun way)
+## What you get
+
+```text
+╭ ~/side-project/coralline  ⬢ coralline  ⎇ main+!  ◆ Fable 5  ψ high  ⬡ ▰▰▰▱▱ 62% ↑1.2M ↓45.6k  5h ▰▰▱▱▱ 41% ↺2h44m  7d ▰▰▰▰▱ 79% ↺1d11h  +321 −87  $1.23  ✎ Explanatory  ⧖ 47m  ⚑ 1  ⊙ 02:45 pm ╮
+```
+
+| Segment | Shows |
+|---|---|
+| `dir` | current directory, long paths collapsed to `~/a/…/z` |
+| `project` | repo name (`⬢`), stable across every worktree; hidden outside a git repo |
+| `git` | branch, staged `+` / modified `!` / untracked `?`, ahead `⇡` behind `⇣` |
+| `model` | active Claude model |
+| `effort` | reasoning effort level (`ψ`) — `low` / `med` / `high` / `xhigh` / `max` |
+| `ctx` | context-window gauge, input/output/cache token counts |
+| `limit5h` / `limit7d` | rate-limit gauges with reset countdown |
+| `lines` | lines added/removed this session |
+| `cost` | session cost in USD |
+| `style` | active output style |
+| `duration` | session wall-clock duration |
+| `stash` | git stash count |
+| `clock` | time, 12h or 24h |
+
+Gauges change color as they fill: green → yellow at 50% → red at 75% (thresholds configurable).
+
+## Install
+
+Three ways to install, all driven by the same `install.sh`. Each one copies the renderer **and
+the setup wizard** into `~/.claude/coralline` and registers the status line in Claude Code, so
+you can re-run the wizard later no matter which way you installed.
+
+> **Requirements:** `jq` and a [Nerd Font](https://www.nerdfonts.com/) terminal. No Nerd Font?
+> Set `VL_ASCII=1` in your config for a glyph-free rendering.
+
+### Ask Claude (recommended)
 
 Paste this into Claude Code:
 
@@ -23,53 +56,26 @@ fetch https://raw.githubusercontent.com/Athena-Git-Group/coralline-athena/main/I
 and follow the playbook in it.
 ```
 
-Claude will ask you to pick a theme (with previews), choose which segments you want, decide
-between a one-line or two-line layout, then wire everything up and verify it. No manual
-config editing required.
+Claude will read the playbook, use the same installer to bootstrap the runtime, interview you
+about the look, write the config, verify it, and remind you that you can rerun the visual
+wizard if the first result doesn't match your taste.
 
-## What you get
+### Install it yourself
 
-```text
-╭ ~/side-project/coralline  ⎇ main+!  ◆ Fable 5  ⬡ ▰▰▰▱▱ 62% ↑1.2M ↓45.6k  5h ▰▰▱▱▱ 41% ↺2h44m  $1.23  ⊙ 02:45 pm ╮
+Run the installer in your terminal:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Nanako0129/coralline/main/install.sh | bash
 ```
 
-| Segment | Shows |
-|---|---|
-| `ip` | local machine IP, cached for `VL_IP_TTL`s — _Athena fork_ |
-| `dir` | current directory, long paths collapsed to `~/a/…/z` |
-| `project` | repo name (`⬢`), stable across every worktree; hidden outside a git repo |
-| `git` | branch, staged `+` / modified `!` / untracked `?`, ahead `⇡` behind `⇣` |
-| `worktree` | git worktree name — _Athena fork_ |
-| `model` | active Claude model |
-| `agent` | active subagent name — _Athena fork_ |
-| `ctx` | context-window gauge, input/output/cache token counts |
-| `limit5h` / `limit7d` | rate-limit gauges with reset countdown |
-| `cost` | session cost in USD |
-| `clock` | time, 12h or 24h |
-| `lines` | lines added/removed this session |
-| `style` | active output style |
-| `duration` | session wall-clock duration |
-| `stash` | git stash count |
-| `warn200k` | 200k-token overflow alert; reuses the theme's hot color — _Athena fork_ |
-
-Gauges change color as they fill: green → yellow at 50% → red at 75% (thresholds configurable).
-
-## Why it's fast
-
-The statusline is just a local shell script: it makes no network or API calls and uses zero
-tokens. Claude Code pipes the session JSON to it on stdin and renders whatever it prints.
-
-It runs every second (`refreshInterval: 1`), so the script is built to be cheap on CPU: one
-`jq` invocation extracts every field at once, and one `git status --porcelain=v2 --branch`
-call provides branch, dirty state, and ahead/behind together. No `bc`, no per-field subprocess
-spam. Works on stock macOS bash 3.2 and any Linux bash.
-
-## Manual install
+### Manual
 
 ```bash
 git clone https://github.com/Athena-Git-Group/coralline-athena ~/.claude/coralline-src
 mkdir -p ~/.claude/coralline/themes
 cp ~/.claude/coralline-src/statusline.sh ~/.claude/coralline/
+cp ~/.claude/coralline-src/configure.sh ~/.claude/coralline/
+cp ~/.claude/coralline-src/install.sh ~/.claude/coralline/
 cp ~/.claude/coralline-src/themes/claude-coral.conf ~/.claude/coralline/themes/
 ```
 
@@ -85,8 +91,42 @@ Then add to `~/.claude/settings.json`:
 }
 ```
 
-> **Note:** requires `jq` and a [Nerd Font](https://www.nerdfonts.com/) terminal.
-> No Nerd Font? Set `VL_ASCII=1` in your config for a glyph-free rendering.
+> **Note:** the commands above copy only the `claude-coral` theme. The Ask-Claude and one-line
+> installers bundle every theme; after a manual install, copy the rest of
+> `~/.claude/coralline-src/themes/*.conf` into `~/.claude/coralline/themes/` to switch themes.
+
+## Setup
+
+Both paths use the same installer. Humans run it with no mode and get the visual setup. Claude
+uses it with `--install-only`, then follows `INSTALL.md` to interview you and write config.
+
+### Setup modes
+
+| Mode | Use when |
+|---|---|
+| Default | You want the coralline default immediately |
+| Powerlevel10k import | You already have `~/.p10k.zsh` and want to carry over its style, time format, and main colors |
+| Visual wizard | You want to preview themes, style, segments, wrapping, clock, and font compatibility before writing config |
+
+Running the installer yourself with no mode opens the interactive setup. Claude should not
+operate that TUI unless you explicitly ask for visual customization.
+
+### Reconfigure
+
+Every install path copies the wizard into `~/.claude/coralline`, so you can rerun it anytime to
+restyle:
+
+```bash
+bash ~/.claude/coralline/configure.sh
+```
+
+### Testing a fork
+
+Point the installer at the same fork:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/YOU/coralline/main/install.sh | bash -s -- --repo YOU/coralline
+```
 
 ## Configuration
 
@@ -146,9 +186,9 @@ Prefer Powerlevel10k's *lean* look — no backgrounds, just colored text? Set
 | `VL_LEAN_SEP` | _(empty)_ | extra text between segments, e.g. `·` |
 | `VL_LEAN_FG` | _(empty)_ | force a text color; empty = inherit each segment's accent |
 
-> **Tip:** already a p10k user? Tell the AI installer to import your `~/.p10k.zsh` — it will
-> carry over your style, colors, and time format. See the
-> [Powerlevel10k import step in INSTALL.md](./INSTALL.md#step-25--powerlevel10k-import-optional).
+> **Tip:** already a p10k user? Tell the AI installer or the visual wizard to import your
+> `~/.p10k.zsh` — it will carry over your style, colors, and time format after you opt in.
+> See the [AI interview notes in INSTALL.md](./INSTALL.md#ai-interview).
 
 ## Themes
 
@@ -157,13 +197,43 @@ Prefer Powerlevel10k's *lean* look — no backgrounds, just colored text? Set
 | **`claude-coral`** — steel blue · mauve · Claude coral (default)<br>![claude-coral theme preview](./assets/theme-claude-coral.png) | **`catppuccin-mocha`** — soft pastels on dark<br>![catppuccin-mocha theme preview](./assets/theme-catppuccin-mocha.png) |
 | **`nord`** — arctic frost<br>![nord theme preview](./assets/theme-nord.png) | **`gruvbox-dark`** — warm retro<br>![gruvbox-dark theme preview](./assets/theme-gruvbox-dark.png) |
 | **`tokyo-night`** — neon on deep navy<br>![tokyo-night theme preview](./assets/theme-tokyo-night.png) | **`mono`** — grayscale minimalism<br>![mono theme preview](./assets/theme-mono.png) |
+| **`dracula`** — cyan · pink · purple on charcoal<br>![dracula theme preview](./assets/theme-dracula.png) | **`lunar-pink`** — pink · cyan · yellow on near-black<br>![lunar-pink theme preview](./assets/theme-lunar-pink.png) |
+| **`reverie`** — soft pastels · plum text on warm-dark<br>![reverie theme preview](./assets/theme-reverie.png) | |
 
 A theme is just a `.conf` file assigning `VL_BG_*` / `VL_FG_*` — copy one, change the colors,
 and source yours from `coralline.conf` instead. PRs with new themes are welcome.
+The wizard discovers themes automatically from `themes/*.conf` and nested collections such as
+`themes/best-themes/*.conf`, so adding a theme file does not require editing `configure.sh`.
 
-> **Tip:** the preview images are generated from the real script by
-> [`tools/render-screenshots.py`](./tools/render-screenshots.py) — after adding a theme, add it
-> to the `THEMES` list there and re-run it to get a matching preview.
+> **Adding a theme?** Copy an existing `.conf`, set every `VL_BG_*` / `VL_FG_*`
+> (including `VL_BG_EFFORT`), add its name to the `THEMES` list in
+> [`tools/render-screenshots.py`](./tools/render-screenshots.py), re-run it to generate
+> `assets/theme-<name>.png`, and add a row to the table above. Please **don't regenerate
+> `hero.png`** — it's a fixed sampler of the original six themes, not a full catalog.
+
+## Platform support
+
+| Platform | Status |
+|---|---|
+| macOS | ✅ supported (works on the stock bash 3.2) |
+| Linux | ✅ supported |
+| Windows + Git Bash | ✅ supported — Claude Code runs the status line through Git Bash when it's installed |
+| Windows without Git Bash | ❌ not yet — Claude Code falls back to PowerShell, which can't run the bash script ([roadmap](https://github.com/Nanako0129/coralline/issues)) |
+
+> **Windows note:** install [Git for Windows](https://git-scm.com/download/win) (which bundles
+> Git Bash) and `jq`, and coralline runs natively. A native PowerShell port for the no-Git-Bash
+> case is on the roadmap. The render path is built to stay cheap under Git Bash's emulated
+> `fork()` — one `jq`, one `git`, and no per-field subprocess spawning.
+
+## Why it's fast
+
+The statusline is just a local shell script: it makes no network or API calls and uses zero
+tokens. Claude Code pipes the session JSON to it on stdin and renders whatever it prints.
+
+It runs every second (`refreshInterval: 1`), so the script is built to be cheap on CPU: one
+`jq` invocation extracts every field at once, and one `git status --porcelain=v2 --branch`
+call provides branch, dirty state, and ahead/behind together. No `bc`, no per-field subprocess
+spam. Works on stock macOS bash 3.2 and any Linux bash.
 
 ## Acknowledgements
 
